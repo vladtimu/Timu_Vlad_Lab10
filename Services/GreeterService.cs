@@ -5,6 +5,8 @@ using System.Threading.Tasks;
 using Grpc.Core;
 using Microsoft.Extensions.Logging;
 
+
+
 namespace Timu_Vlad_Lab10
 {
     public override Task<HelloReply> SayHello(HelloRequest request, ServerCallContext context)
@@ -32,5 +34,44 @@ context)
  new StatusInfo { Author = "Steve", Description = "Task 2 in progress"}
  };
         return statusList;
+    }
+    public override async Task SendStatusSS(SRequest request,
+IServerStreamWriter<SResponse> responseStream, ServerCallContext context)
+    {
+        List<StatusInfo> statusList = StatusRepo();
+        SResponse sRes;
+        var i = 0;
+        while (!context.CancellationToken.IsCancellationRequested)
+        {
+            sRes = new SResponse();
+            sRes.StatusInfo.Add(statusList.Skip(i).Take(request.No));
+            await responseStream.WriteAsync(sRes);
+            i++;
+
+            await Task.Delay(1000);
+        }
+    }
+    public override async Task<SResponse> SendStatusCS(IAsyncStreamReader<SRequest>
+requestStream, ServerCallContext context)
+    {
+        List<StatusInfo> statusList = StatusRepo();
+        SResponse sRes = new SResponse();
+        await foreach (var message in requestStream.ReadAllAsync())
+        {
+            sRes.StatusInfo.Add(statusList.Skip(message.No - 1).Take(1));
+        }
+        return sRes;
+    }
+    public override async Task SendStatusBD(IAsyncStreamReader<SRequest> requestStream,
+IServerStreamWriter<SResponse> responseStream, ServerCallContext context)
+    {
+        List<StatusInfo> statusList = StatusRepo();
+        SResponse sRes;
+        await foreach (var message in requestStream.ReadAllAsync())
+        {
+            sRes = new SResponse();
+            sRes.StatusInfo.Add(statusList.Skip(message.No - 1).Take(1));
+            await responseStream.WriteAsync(sRes);
+        }
     }
 }
